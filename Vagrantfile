@@ -2,6 +2,7 @@
 # vi: set ft=ruby :
 # http://qiita.com/Yuki-Inamoto/items/ce65468abba10bce58f0
 # https://www.theurbanpenguin.com/create-3-node-drbd-9-cluster-using-drbd-manage/
+# http://www.thegeekstuff.com/2008/11/3-steps-to-perform-ssh-login-without-password-using-ssh-keygen-ssh-copy-id/
 
 servers=[
   {
@@ -26,6 +27,7 @@ $script = <<SCRIPT
 
   export LANGUAGE="en_US.UTF-8"
   export LC_ALL="en_US.UTF-8"
+  echo "nameserver 8.8.8.8" >> /etc/resolv.conf 
 
   ## add user/group
   groupadd -f -g 1000 elasticsearch && useradd elasticsearch -ou 1000 -g 1000
@@ -39,7 +41,7 @@ $script = <<SCRIPT
 
   ## Enable EPEL repository
   rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
-  rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-3.el7.elrepo.noarch.rpm
+  rpm -Uvh https://www.elrepo.org/elrepo-release-7.0-3.el7.elrepo.noarch.rpm
 
   ## install related packages.
   ## yum install -y net-tools git wget curl python-pip telnet vim device-mapper-persistent-data lvm2 docker-ce ntp nfs-utils
@@ -47,11 +49,16 @@ $script = <<SCRIPT
   telnet vim device-mapper-persistent-data lvm2 docker-ce ntp nfs-utils \
   libxslt drbd90-utils kmod-drbd90 pygobject2 help2man
 
+  ## install sshpass
+  wget http://ftp.tu-chemnitz.de/pub/linux/dag/redhat/el7/en/x86_64/rpmforge/RPMS/rpmforge-release-0.5.3-1.el7.rf.x86_64.rpm
+  rpm -Uvh rpmforge-release*rpm
+  yum install -y sshpass
+
   ## install drbdmanage package
   git clone --recursive http://git.drbd.org/drbdmanage.git
-  echo '# vgcreate drbdpool' > /etc/drbdmanaged.cfg
+  echo "# vgcreate drbdpool" > /etc/drbdmanaged.cfg
   cd drbdmanage
-  make
+  # make
   make install
   cd ..
   rm -rf drbdmanage
@@ -70,39 +77,52 @@ $script = <<SCRIPT
 
   # create drbdpool
   vgcreate drbdpool /dev/sdb
-
+  vgdisplay -c
+  
   ## drdb cluster
   if [ "$(hostname)" == "drbd2" ];then
-    ## need to let ssh without asking passphrase.
-    ## http://www.thegeekstuff.com/2008/11/3-steps-to-perform-ssh-login-without-password-using-ssh-keygen-ssh-copy-id/
 
     ## install sshpass
     wget http://ftp.tu-chemnitz.de/pub/linux/dag/redhat/el7/en/x86_64/rpmforge/RPMS/rpmforge-release-0.5.3-1.el7.rf.x86_64.rpm
     rpm -Uvh rpmforge-release*rpm
-    yum install sshpass
+    yum install -y sshpass
 
-    printf '\n' | ssh-keygen -N ''
+    # drbd2 -> drbd0/1
+    echo | ssh-keygen -N ''
     ssh-keyscan drbd0 >> ~/.ssh/known_hosts
     ssh-keyscan drbd1 >> ~/.ssh/known_hosts
     sshpass -p vagrant ssh-copy-id -i ~/.ssh/id_rsa.pub drbd0
     sshpass -p vagrant ssh-copy-id -i ~/.ssh/id_rsa.pub drbd1
 
+    ssh drbd0 "echo | ssh-keygen -N ''"
+    ssh drbd0 "ssh-keyscan drbd1 >> ~/.ssh/known_hosts"
+    ssh drbd0 "ssh-keyscan drbd2 >> ~/.ssh/known_hosts"
+    ssh drbd0 "sshpass -p vagrant ssh-copy-id -i ~/.ssh/id_rsa.pub drbd1"
+    ssh drbd0 "sshpass -p vagrant ssh-copy-id -i ~/.ssh/id_rsa.pub drbd2"
+
+    ssh drbd1 "echo | ssh-keygen -N ''"
+    ssh drbd1 "ssh-keyscan drbd0 >> ~/.ssh/known_hosts"
+    ssh drbd1 "ssh-keyscan drbd2 >> ~/.ssh/known_hosts"
+    ssh drbd1 "sshpass -p vagrant ssh-copy-id -i ~/.ssh/id_rsa.pub drbd0"
+    ssh drbd1 "sshpass -p vagrant ssh-copy-id -i ~/.ssh/id_rsa.pub drbd2"
+
     ## init cluster
-    printf 'yes\n' | drbdmanage init 192.168.100.62
-    printf 'yes\n' | drbdmanage add-node drbd0 192.168.100.60
-    printf 'yes\n' | drbdmanage add-node drbd1 192.168.100.61
+    echo "yes" | drbdmanage init 192.168.100.62
+    echo "yes" | drbdmanage add-node drbd0 192.168.100.60
+    echo "yes" | drbdmanage add-node drbd1 192.168.100.61
 
     drbdmanage update-pool
     drbdmanage list-nodes
     drbd-overview
+    drbdadm status
 
     ## Add Cluster Resource
     drbdmanage add-volume esdata 1GB --deploy 3
     drbdmanage list-volumes
-    # drbdmanage add-resource esdata
-    # drbdmanage add-volume esdata 1GB
-    # drbdmanage deploy-resource esdata 3
-    # lsblk
+    # # drbdmanage add-resource esdata
+    # # drbdmanage add-volume esdata 1GB
+    # # drbdmanage deploy-resource esdata 3
+    lsblk
   
     ## format disk
     mkfs.xfs /dev/drbd100
@@ -112,7 +132,7 @@ $script = <<SCRIPT
     ## nfs server
     chown -R elasticsearch:elasticsearch /mnt/esdata
     chmod 755 /mnt/esdata
-    echo '/mnt/esdata 192.168.100.0/24(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000)' >> /etc/exports
+    echo "/mnt/esdata 192.168.100.0/24(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000)" >> /etc/exports
     exportfs -a
   fi
 

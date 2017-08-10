@@ -79,8 +79,39 @@ Repeat the command `drbdmanage howto-join drbd1` and execute the command as the 
 
 ## umount in drbd1
 
-- [root@drbd1 vagrant]# umount /mnt/data
-- [root@drbd1 vagrant]# ls /mnt/data
+- `[root@drbd1 vagrant]# umount /mnt/data`
+- `[root@drbd1 vagrant]# ls /mnt/data`
 
+## umount in drbd2
+
+- `[root@drbd2 ~]# echo "# /mnt/esdata 192.168.100.0/24(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000)" >> /etc/exports`
+- `[root@drbd2 ~]# exportfs -a`
+- `[root@drbd2 ~]# systemctl stop nfs-server.service`
+- `[root@drbd2 ~]# umount /mnt/esdata`
+- `[root@drbd2 ~]# drbdadm status`
+
+drbd2 still in the primary role.
+
+[![https://gyazo.com/58692a559924cc76b2dede256270a6df](https://i.gyazo.com/58692a559924cc76b2dede256270a6df.png)](https://gyazo.com/58692a559924cc76b2dede256270a6df)
+
+## mount in drbd0
+
+- `[root@drbd0 ~]# mkdir -p /mnt/esdata`
+- `[root@drbd0 ~]# mount /dev/drbd100 /mnt/esdata`
+- `[root@drbd0 ~]# ls -al /mnt/esdata`
+
+[![https://gyazo.com/aa8c6953cf178822f3d88bbc068df230](https://i.gyazo.com/aa8c6953cf178822f3d88bbc068df230.png)](https://gyazo.com/aa8c6953cf178822f3d88bbc068df230)
+
+- `[root@drbd0 ~]# drbdadm status`
+esdata role:Primary
+
+[![https://gyazo.com/8c83ac5481606eeb4f604571e9279e28](https://i.gyazo.com/8c83ac5481606eeb4f604571e9279e28.png)](https://gyazo.com/8c83ac5481606eeb4f604571e9279e28)
+
+
+## drbd2 file status changes to the secondary.
+
+- `[root@drbd2 ~]# drbdadm status`
+
+[![https://gyazo.com/881e2d202fc36fdea97aeaf0b68b1a0e](https://i.gyazo.com/881e2d202fc36fdea97aeaf0b68b1a0e.png)](https://gyazo.com/881e2d202fc36fdea97aeaf0b68b1a0e)
 
 

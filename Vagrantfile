@@ -71,6 +71,8 @@ $script = <<SCRIPT
   systemctl enable nfs-server.service
 
   # add /etc/hosts
+  echo '127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4' > /etc/hosts
+  echo '::1         localhost localhost.localdomain localhost6 localhost6.localdomain6' >> /etc/hosts
   echo '192.168.100.60  drbd0 drbd0' >> /etc/hosts
   echo '192.168.100.61  drbd1 drbd1' >> /etc/hosts
   echo '192.168.100.62  drbd2 drbd2' >> /etc/hosts
@@ -116,24 +118,24 @@ $script = <<SCRIPT
     drbd-overview
     drbdadm status
 
-    ## Add Cluster Resource
-    drbdmanage add-volume esdata 1GB --deploy 3
-    drbdmanage list-volumes
-    # # drbdmanage add-resource esdata
-    # # drbdmanage add-volume esdata 1GB
-    # # drbdmanage deploy-resource esdata 3
-    lsblk
+    # ## Add Cluster Resource
+    # drbdmanage add-volume esdata 1GB --deploy 3
+    # drbdmanage list-volumes
+    # # # drbdmanage add-resource esdata
+    # # # drbdmanage add-volume esdata 1GB
+    # # # drbdmanage deploy-resource esdata 3
+    # lsblk
   
-    ## format disk
-    mkfs.xfs /dev/drbd100
-    mkdir -p /mnt/esdata
-    mount /dev/drbd100 /mnt/esdata
+    # ## format disk
+    # mkfs.xfs /dev/drbd100
+    # mkdir -p /mnt/esdata
+    # mount /dev/drbd100 /mnt/esdata
 
-    ## nfs server
-    chown -R elasticsearch:elasticsearch /mnt/esdata
-    chmod 755 /mnt/esdata
-    echo "/mnt/esdata 192.168.100.0/24(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000)" >> /etc/exports
-    exportfs -a
+    # ## nfs server
+    # chown -R elasticsearch:elasticsearch /mnt/esdata
+    # chmod 755 /mnt/esdata
+    # echo "/mnt/esdata 192.168.100.0/24(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000)" >> /etc/exports
+    # exportfs -a
   fi
 
   #debug
